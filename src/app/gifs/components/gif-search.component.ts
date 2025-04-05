@@ -13,10 +13,7 @@ import { InputText } from 'primeng/inputtext';
       [formControl]="searchFormControl()"
     />
   `,
-  imports: [
-    InputText,
-    ReactiveFormsModule,
-  ],
+  imports: [InputText, ReactiveFormsModule],
   styles: ``,
 })
 export class GifSearchComponent {
