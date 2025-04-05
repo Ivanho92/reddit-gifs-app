@@ -1,4 +1,5 @@
 import { APP_CONFIG } from '@core/injection-tokens';
+import { ErrorService } from '@core/error.service';
 import { FormControl } from '@angular/forms';
 import { Gif } from './gif.model';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -16,27 +17,26 @@ import {
   expand,
   map,
   startWith,
-  switchMap, tap,
+  switchMap,
 } from 'rxjs';
 
 export interface GifsState {
   gifs: Gif[];
-  error: string | null;
   loading: boolean;
   lastKnownGif: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
 export class GifService {
-  private readonly http = inject(HttpClient);
   private readonly cfg = inject(APP_CONFIG);
+  private readonly errorService = inject(ErrorService);
+  private readonly http = inject(HttpClient);
 
   searchFormControl = new FormControl<string>('');
 
   //region State
   private readonly state = signal<GifsState>({
     gifs: [],
-    error: null,
     loading: true,
     lastKnownGif: null,
   });
@@ -44,7 +44,6 @@ export class GifService {
 
   //region Selectors
   gifs = computed(() => this.state().gifs);
-  error = computed(() => this.state().error);
   loading = computed(() => this.state().loading);
   lastKnownGif = computed(() => this.state().lastKnownGif);
   //endregion
@@ -65,19 +64,15 @@ export class GifService {
       this.pagination$.pipe(
         startWith(null),
         distinctUntilChanged(),
-        tap(lastKnownGif => {
-          console.log("------------------");
-          console.log("pagination$ emited with value", lastKnownGif);
-          console.log("state", this.state());
-        }),
         concatMap((lastKnownGif) =>
-          this.fetchGifsRecursively(searchValue, lastKnownGif, this.cfg.GIFS_PER_PAGE),
+          this.fetchGifsRecursively(
+            searchValue,
+            lastKnownGif,
+            this.cfg.GIFS_PER_PAGE,
+          ),
         ),
       ),
     ),
-    tap((response) => {
-      console.log("gifsLoaded$ completed. response: ", response);
-    }),
   );
   //endregion
 
@@ -98,9 +93,8 @@ export class GifService {
         gifs: [...state.gifs, ...response.gifs],
         loading: false,
         lastKnownGif: response.lastKnownGif,
-      }))
-      }
-    );
+      }));
+    });
 
     this.pagination$.pipe(takeUntilDestroyed()).subscribe(() => {
       this.state.update((state) => ({
@@ -109,12 +103,14 @@ export class GifService {
       }));
     });
 
-    this.error$.pipe(takeUntilDestroyed()).subscribe((error) =>
+    this.error$.pipe(takeUntilDestroyed()).subscribe((error) => {
+      if (error) this.errorService.addError(error);
+
       this.state.update((state) => ({
         ...state,
-        error,
-      })),
-    );
+        loading: false,
+      }));
+    });
     //endregion
   }
 
@@ -122,20 +118,9 @@ export class GifService {
   private fetchGifsRecursively(
     searchValue: string,
     lastKnownGif: string | null,
-    gifsPerPage: number
+    gifsPerPage: number,
   ) {
-    console.log("fetchGifsRecursively", lastKnownGif)
-    // if (lastKnownGif && lastKnownGif === this.lastKnownGif()) return EMPTY;
-
-    return this.fetchGifs(
-      searchValue,
-      lastKnownGif,
-      gifsPerPage,
-    ).pipe(
-      // tap(() => {}),
-      // tap(posts => console.log(posts)),
-      // tap(() => console.log(this.lastKnownGif())),
-
+    return this.fetchGifs(searchValue, lastKnownGif, gifsPerPage).pipe(
       // A single request might not give enough valid gifs
       // as not every post is a valid gif.
       // Keep fetching more data until we do have enough for a page.
@@ -149,16 +134,9 @@ export class GifService {
           index < maxAttempts &&
           lastKnownGif !== null;
 
-        if (shouldKeepTrying) {
-          console.log("trying another time... try # ", index+2);
-          return this.fetchGifs(searchValue, lastKnownGif, remainingGifsToFetch)
-        } else {
-          return EMPTY
-        }
-
-        // return shouldKeepTrying
-        //   ? this.fetchGifs(searchValue, lastKnownGif, remainingGifsToFetch)
-        //   : EMPTY;
+        return shouldKeepTrying
+          ? this.fetchGifs(searchValue, lastKnownGif, remainingGifsToFetch)
+          : EMPTY;
       }),
     );
   }
@@ -168,27 +146,24 @@ export class GifService {
     after: string | null,
     gifsRequired: number,
   ) {
-    return this.http.get<RedditResponse>(`https://www.reddit.com/r/gifs/search.json`, {
-      params: {
-        q: searchValue ?? 'hot',
-        type: 'media',
-        limit: 100,
-        ...(after && { after }), // only adds 'after' if truthy
-      },
-    })
+    return this.http
+      .get<RedditResponse>(`https://www.reddit.com/r/gifs/search.json`, {
+        params: {
+          q: searchValue ?? 'hot',
+          type: 'media',
+          limit: 100,
+          ...(after && { after }), // only adds 'after' if truthy
+        },
+      })
       .pipe(
-        // tap(response => console.log(response)),
         catchError((err) => {
           this.handleError(err);
           return EMPTY;
         }),
         map((response) => {
           const posts = response.data.children;
-          console.log(posts.length)
           let gifs = this.convertRedditPostsToGifs(posts);
-          let lastKnownGif = posts.length
-            ? posts.at(-1)!.data.name
-            : after;
+          let lastKnownGif = posts.length ? posts.at(-1)!.data.name : after;
 
           return {
             gifs,
@@ -199,15 +174,14 @@ export class GifService {
       );
   }
 
-  private handleError(err: HttpErrorResponse) {
+  private handleError(error: HttpErrorResponse) {
     // Handle specific error cases
-    if (err.status === 404 && err.url) {
-      this.error$.next(`Failed to load gifs for /r/${err.url.split('/')[4]}`);
+    if (error.status === 404 && error.url) {
+      this.error$.next(`Failed to load gifs for /r/${error.url.split('/')[4]}`);
       return;
     }
 
-    // Generic error if no cases match
-    this.error$.next(err.statusText);
+    this.error$.next(`Failed to load gifs`);
   }
 
   private convertRedditPostsToGifs(posts: RedditPost[]) {
