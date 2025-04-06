@@ -91,7 +91,8 @@ export class GifService {
       }));
     });
 
-    this.pagination$.pipe(takeUntilDestroyed()).subscribe(() => {
+    this.pagination$.pipe(takeUntilDestroyed()).subscribe((value) => {
+      if (value === null) return;
       this.state.update((state) => ({
         ...state,
         loading: true,
