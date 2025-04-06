@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "my-quicklists-app": {
+    "my-reddit-gifs-app": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -42,7 +42,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/my-quicklists-app",
+            "outputPath": "dist/my-reddit-gifs-app",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
@@ -89,10 +89,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "my-quicklists-app:build:production"
+              "buildTarget": "my-reddit-gifs-app:build:production"
             },
             "development": {
-              "buildTarget": "my-quicklists-app:build:development"
+              "buildTarget": "my-reddit-gifs-app:build:development"
             }
           },
           "defaultConfiguration": "development"
