@@ -7,7 +7,7 @@ import { GifSearchComponent } from './components/gif-search.component';
 
 @Component({
   standalone: true,
-  selector: 'app-home',
+  selector: 'app-gif-list-page',
   template: `
     <app-gif-search [searchFormControl]="gifService.searchFormControl" />
 
@@ -16,7 +16,6 @@ import { GifSearchComponent } from './components/gif-search.component';
         [gifs]="gifService.gifs()"
         infiniteScroll
         (scrolled)="gifService.pagination$.next(gifService.lastKnownGif())"
-        class="grid-container"
       />
     } @else if (!gifService.loading()) {
       <p>Can't find any gifs 🤷</p>

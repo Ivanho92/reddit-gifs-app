@@ -11,7 +11,6 @@ import { GifPlayerComponent } from './gif-player.component';
         <app-gif-player [src]="gif.src" [thumbnail]="gif.thumbnail" />
         <div>
           <span>{{ gif.title }}</span>
-          <span class="toolbar-spacer"></span>
           <a [href]="'https://reddit.com/' + gif.permalink"></a>
         </div>
       </div>

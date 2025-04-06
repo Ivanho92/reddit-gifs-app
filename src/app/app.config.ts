@@ -1,5 +1,4 @@
-import { AppErrorHandler } from '@core/error.handler';
-import { ApplicationConfig, ErrorHandler } from '@angular/core';
+import { ApplicationConfig } from '@angular/core';
 import { AuraBlue } from '@core/theming';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -22,6 +21,5 @@ export const appConfig: ApplicationConfig = {
         },
       },
     }),
-    { provide: ErrorHandler, useClass: AppErrorHandler },
   ],
 };
