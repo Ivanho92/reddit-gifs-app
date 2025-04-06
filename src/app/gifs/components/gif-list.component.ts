@@ -1,23 +1,36 @@
 import { Component, input } from '@angular/core';
 import { Gif } from '../shared/gif.model';
-import { GifPlayerComponent } from './gif-player.component';
+import { GitItemComponent } from '@/gifs/components/gif-item.component';
 
 @Component({
   standalone: true,
   selector: 'app-gif-list',
   template: `
-    @for (gif of gifs(); track gif.permalink) {
-      <div>
-        <app-gif-player [src]="gif.src" [thumbnail]="gif.thumbnail" />
-        <div>
-          <span>{{ gif.title }}</span>
-          <a [href]="'https://reddit.com/' + gif.permalink"></a>
-        </div>
-      </div>
+    <div class="[ responsive-grid ] [ wrapper ]">
+      @for (gif of gifs(); track gif.permalink) {
+        <app-gif-item
+          [src]="gif.src"
+          [title]="gif.title"
+          [permalink]="gif.permalink"
+          [thumbnail]="gif.thumbnail"
+        />
+      }
+    </div>
+  `,
+  imports: [GitItemComponent],
+  styles: `
+    :host {
+      display: block;
+      margin-block-start: 8rem;
+      margin-block-end: 1rem;
+    }
+
+    .responsive-grid {
+      display: grid;
+      grid-gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
   `,
-  imports: [GifPlayerComponent],
-  styles: ``,
 })
 export class GifListComponent {
   gifs = input.required<Gif[]>();

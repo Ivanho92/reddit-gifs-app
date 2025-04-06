@@ -21,11 +21,18 @@ interface GifPlayerState {
   selector: 'app-gif-player',
   template: `
     @if (status() === 'loading') {
-      <p-progress-spinner ariaLabel="loading" />
+      <p-progress-spinner
+        ariaLabel="loading"
+        strokeWidth="4"
+        styleClass="center-absolute"
+        [style]="{ width: '50px', height: '50px' }"
+      />
     }
     <video
       (click)="togglePlay$.next()"
+      (keydown.enter)="togglePlay$.next()"
       #gifPlayer
+      tabindex="0"
       playsinline
       preload="none"
       [poster]="thumbnail()"
@@ -35,9 +42,17 @@ interface GifPlayerState {
     ></video>
   `,
   styles: `
+    :host {
+      display: block;
+      position: relative;
+    }
+
     video {
       display: block;
-      height: 100px;
+      max-height: 300px;
+      width: 100%;
+      background: black;
+      cursor: pointer;
     }
   `,
   imports: [ProgressSpinner],

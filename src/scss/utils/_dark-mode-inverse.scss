@@ -1,0 +1,9 @@
+html.dark-mode .dark-mode-inverse {
+  filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dark-mode-inverse {
+    filter: invert(1);
+  }
+}

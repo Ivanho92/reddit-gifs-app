@@ -1,17 +1,17 @@
 import { Component, inject } from '@angular/core';
-import { InfiniteScrollDirective } from 'ngx-infinite-scroll';
-import { ProgressSpinner } from 'primeng/progressspinner';
 import { GifListComponent } from './components/gif-list.component';
+import { GifListHeaderComponent } from '@/gifs/components/gif-list-header.component';
 import { GifService } from './shared/gif.service';
-import { GifSearchComponent } from './components/gif-search.component';
+import { InfiniteScrollDirective } from 'ngx-infinite-scroll';
 
 @Component({
   standalone: true,
   selector: 'app-gif-list-page',
   template: `
-    <div style="position: fixed; top: 0; right: 0;">{{ gifService.loading() }}</div>
-
-    <app-gif-search [searchFormControl]="gifService.searchFormControl" />
+    <app-gif-list-header
+      [searchFormControl]="gifService.searchFormControl"
+      [isLoadingGifs]="gifService.loading()"
+    />
 
     @if (gifService.gifs().length) {
       <app-gif-list
@@ -23,17 +23,8 @@ import { GifSearchComponent } from './components/gif-search.component';
     } @else if (!gifService.loading()) {
       <p>Can't find any gifs 🤷</p>
     }
-
-    @if (gifService.loading()) {
-      <p-progress-spinner ariaLabel="loading" />
-    }
   `,
-  imports: [
-    GifListComponent,
-    GifSearchComponent,
-    InfiniteScrollDirective,
-    ProgressSpinner,
-  ],
+  imports: [GifListComponent, InfiniteScrollDirective, GifListHeaderComponent],
   styles: ``,
 })
 export default class GifListPage {

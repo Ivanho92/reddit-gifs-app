@@ -159,6 +159,8 @@ export class GifService {
       .get<RedditResponse>(`https://www.reddit.com/r/gifs/search.json`, {
         params: {
           q: searchQuery,
+          type: 'posts',
+          sort: 'relevance',
           limit: this.cfg.GIFS_PER_FETCH_LIMIT,
           ...(after && { after }), // only adds 'after' if truthy
         },

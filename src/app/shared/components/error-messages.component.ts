@@ -6,14 +6,26 @@ import { ErrorService } from '@core/error.service';
   selector: 'app-error-messages',
   imports: [Message],
   template: `
-    @for (error of errorService.errors(); track error.uuid) {
-      <p-message
-        severity="error"
-        closable
-        (onClose)="errorService.onRemoveError(error.uuid)"
-      >
-        {{ error.message }}
-      </p-message>
+    <div class="flow" style="--flow-space: 0.5em">
+      @for (error of errorService.errors(); track error.uuid) {
+        <p-message
+          severity="error"
+          closable
+          (onClose)="errorService.onRemoveError(error.uuid)"
+        >
+          {{ error.message }}
+        </p-message>
+      }
+    </div>
+  `,
+  styles: `
+    :host {
+      display: block;
+      margin-block: 0.5em;
+    }
+
+    :host ::ng-deep p-message {
+      display: block;
     }
   `,
 })

@@ -54,7 +54,11 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.scss", "src/scss/main.scss"],
+            "styles": [
+              "node_modules/primeicons/primeicons.css",
+              "src/styles.scss",
+              "src/scss/main.scss"
+            ],
             "scripts": []
           },
           "configurations": {
