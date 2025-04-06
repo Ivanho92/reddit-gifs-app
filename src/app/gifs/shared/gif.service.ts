@@ -58,7 +58,7 @@ export class GifService {
     debounceTime(300),
     distinctUntilChanged(),
     startWith('gifs'),
-    map((subreddit) => (subreddit?.length ? subreddit : 'gifs')),
+    map((searchQuery) => (searchQuery?.length ? searchQuery.trim() : 'gifs')),
   );
 
   private readonly gifsLoaded$ = this.searchChanged$.pipe(
@@ -150,14 +150,14 @@ export class GifService {
   }
 
   private fetchGifs(
-    searchValue: string,
+    searchQuery: string,
     after: string | null | undefined,
     gifsRequired: number,
   ) {
     return this.http
-      .get<RedditResponse>(`https://www.reddit.com/r/${searchValue}/hot.json`, {
+      .get<RedditResponse>(`https://www.reddit.com/r/gifs/search.json`, {
         params: {
-          type: 'media',
+          q: searchQuery,
           limit: this.cfg.GIFS_PER_FETCH_LIMIT,
           ...(after && { after }), // only adds 'after' if truthy
         },
@@ -182,7 +182,6 @@ export class GifService {
   }
 
   private handleError(error: HttpErrorResponse) {
-    // Handle specific error cases
     if (error.status === 404 && error.url) {
       this.error$.next(`Failed to load gifs for /r/${error.url.split('/')[4]}`);
       return;
