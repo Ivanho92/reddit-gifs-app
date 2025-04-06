@@ -1,4 +1,6 @@
 export default {
-  GIFS_PER_PAGE: 20,
+  RECURSIVE_FETCH_MAX_ATTEMPTS: 5,
+  MIN_GIFS_PER_PAGE: 30,
+  GIFS_PER_FETCH_LIMIT: 50,
   DEFAULT_THUMBNAILS: ['default', 'nsfw'],
 };
