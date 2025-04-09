@@ -28,7 +28,7 @@ import { ProgressSpinner } from 'primeng/progressspinner';
             <div class="cluster">
               <h1>Reddit Gifs</h1>
               <a
-                href="https://github.com/Ivanho92/reddit-gifs-app"
+                href="https://github.com/Ivanho92/reddit-gifs-app/tree/refactor/angular-resource-api"
                 target="_blank"
               >
                 <img
