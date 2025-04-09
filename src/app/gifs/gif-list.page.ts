@@ -10,17 +10,17 @@ import { InfiniteScrollDirective } from 'ngx-infinite-scroll';
   template: `
     <app-gif-list-header
       [searchFormControl]="gifService.searchFormControl"
-      [isLoadingGifs]="gifService.loading()"
+      [isLoadingGifs]="gifService.gifsLoaded.isLoading()"
     />
 
     @if (gifService.gifs().length) {
       <app-gif-list
         [gifs]="gifService.gifs()"
         infiniteScroll
-        (scrolled)="gifService.pagination$.next(gifService.lastKnownGif())"
-        [infiniteScrollDisabled]="gifService.loading()"
+        (scrolled)="gifService.paginateAfter.set(gifService.gifsLoaded.value().lastKnownGif)"
+        [infiniteScrollDisabled]="gifService.gifsLoaded.isLoading()"
       />
-    } @else if (!gifService.loading()) {
+    } @else if (!gifService.gifsLoaded.isLoading()) {
       <p>Can't find any gifs 🤷</p>
     }
   `,

@@ -1,31 +1,29 @@
-import { APP_CONFIG } from '@core/injection-tokens';
-import { ErrorService } from '@core/error.service';
-import { FormControl } from '@angular/forms';
-import { Gif } from './gif.model';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { effect, inject, Injectable, linkedSignal } from '@angular/core';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
+import { FormControl } from '@angular/forms';
 import { RedditPost } from '@common/interfaces/reddit-post';
 import { RedditResponse } from '@common/interfaces/reddit-response';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ErrorService } from '@core/error.service';
+import { APP_CONFIG } from '@core/injection-tokens';
 import {
-  EMPTY,
-  Subject,
   catchError,
-  concatMap,
   debounceTime,
   distinctUntilChanged,
+  EMPTY,
   expand,
   map,
+  Observable,
   of,
   reduce,
   startWith,
-  switchMap,
 } from 'rxjs';
+import { Gif } from './gif.model';
 
-export interface GifsState {
+interface FetchResponse {
   gifs: Gif[];
-  loading: boolean;
   lastKnownGif: string | null | undefined;
+  gifsRequired: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -36,86 +34,58 @@ export class GifService {
 
   searchFormControl = new FormControl<string>('');
 
-  //region State
-  private readonly state = signal<GifsState>({
-    gifs: [],
-    loading: true,
-    lastKnownGif: undefined,
-  });
-  //endregion
-
-  //region Selectors
-  gifs = computed(() => this.state().gifs);
-  loading = computed(() => this.state().loading);
-  lastKnownGif = computed(() => this.state().lastKnownGif);
-  //endregion
-
   //region Sources
-  readonly pagination$ = new Subject<string | null | undefined>();
-  private readonly error$ = new Subject<string>();
-
   private readonly searchChanged$ = this.searchFormControl.valueChanges.pipe(
     debounceTime(300),
     distinctUntilChanged(),
     startWith('gifs'),
     map((searchQuery) => (searchQuery?.length ? searchQuery.trim() : 'gifs')),
   );
+  searchValue = toSignal(this.searchChanged$, { initialValue: '' });
 
-  private readonly gifsLoaded$ = this.searchChanged$.pipe(
-    switchMap((searchValue) =>
-      this.pagination$.pipe(
-        distinctUntilChanged(),
-        startWith(undefined),
-        concatMap((paginationValue) =>
-          paginationValue === null
-            ? of({ gifs: [], lastKnownGif: null })
-            : this.fetchGifsRecursively(
-                searchValue,
-                paginationValue,
-                this.cfg.MIN_GIFS_PER_PAGE,
-              ),
-        ),
-      ),
-    ),
-  );
+  paginateAfter = linkedSignal({
+    source: this.searchValue,
+    computation: () => undefined as string | null | undefined,
+  });
+
+  gifsLoaded = rxResource({
+    request: () => ({
+      searchValue: this.searchValue(),
+      paginateAfter: this.paginateAfter(),
+    }),
+    loader: ({ request }) => {
+      const { searchValue, paginateAfter } = request;
+      return paginateAfter === null
+        ? of({
+            gifs: [],
+            lastKnownGif: null,
+            gifsRequired: this.cfg.MIN_GIFS_PER_PAGE,
+          })
+        : this.fetchGifsRecursively(
+            searchValue,
+            paginateAfter,
+            this.cfg.MIN_GIFS_PER_PAGE,
+          );
+    },
+    defaultValue: {
+      gifs: [],
+      lastKnownGif: undefined,
+      gifsRequired: this.cfg.MIN_GIFS_PER_PAGE,
+    },
+  });
+
+  gifs = linkedSignal<FetchResponse, Gif[]>({
+    source: this.gifsLoaded.value,
+    computation: (source, previous) =>
+      !previous ? [] : [...previous.value, ...source.gifs],
+  });
   //endregion
 
   constructor() {
-    //region Reducers
-    this.searchChanged$.pipe(takeUntilDestroyed()).subscribe(() => {
-      this.state.update((state) => ({
-        ...state,
-        loading: true,
-        gifs: [],
-        lastKnownGif: undefined,
-      }));
+    effect(() => {
+      this.searchValue();
+      this.gifs.set([]);
     });
-
-    this.pagination$.pipe(takeUntilDestroyed()).subscribe((value) => {
-      if (value === null) return;
-      this.state.update((state) => ({
-        ...state,
-        loading: true,
-      }));
-    });
-
-    this.gifsLoaded$.pipe(takeUntilDestroyed()).subscribe((response) => {
-      this.state.update((state) => ({
-        ...state,
-        gifs: [...state.gifs, ...response.gifs],
-        loading: false,
-        lastKnownGif: response.lastKnownGif,
-      }));
-    });
-
-    this.error$.pipe(takeUntilDestroyed()).subscribe((error) => {
-      this.errorService.addError(error);
-      this.state.update((state) => ({
-        ...state,
-        loading: false,
-      }));
-    });
-    //endregion
   }
 
   //region Methods
@@ -123,7 +93,7 @@ export class GifService {
     searchValue: string,
     lastKnownGif: string | null | undefined,
     gifsPerPage: number,
-  ) {
+  ): Observable<FetchResponse> {
     return this.fetchGifs(searchValue, lastKnownGif, gifsPerPage).pipe(
       // A single request might not give enough valid gifs
       // as not every post is a valid gif.
@@ -151,14 +121,14 @@ export class GifService {
   }
 
   private fetchGifs(
-    searchQuery: string,
+    searchValue: string,
     after: string | null | undefined,
     gifsRequired: number,
-  ) {
+  ): Observable<FetchResponse> {
     return this.http
       .get<RedditResponse>(`https://www.reddit.com/r/gifs/search.json`, {
         params: {
-          q: searchQuery,
+          q: searchValue,
           type: 'posts',
           sort: 'relevance',
           limit: this.cfg.GIFS_PER_FETCH_LIMIT,
@@ -186,23 +156,25 @@ export class GifService {
 
   private handleError(error: HttpErrorResponse) {
     if (error.status === 404 && error.url) {
-      this.error$.next(`Failed to load gifs for /r/${error.url.split('/')[4]}`);
+      this.errorService.addError(
+        `Failed to load gifs for /r/${error.url.split('/')[4]}`,
+      );
       return;
     }
 
     if (error.status === 429) {
-      this.error$.next(
+      this.errorService.addError(
         `Too many requests were sent to Reddit. Please try again in a few minutes.`,
       );
       return;
     }
 
-    this.error$.next(
+    this.errorService.addError(
       `Failed to load gifs (${error.status} ${error.statusText})`,
     );
   }
 
-  private convertRedditPostsToGifs(posts: RedditPost[]) {
+  private convertRedditPostsToGifs(posts: RedditPost[]): Gif[] {
     return posts
       .map((post) => ({
         src: this.getBestSrcForGif(post),
@@ -216,7 +188,7 @@ export class GifService {
       .filter((post): post is Gif => post.src !== null);
   }
 
-  private getBestSrcForGif(post: RedditPost) {
+  private getBestSrcForGif(post: RedditPost): string | null {
     // If the source is in .mp4 format, leave unchanged
     if (post.data.url.indexOf('.mp4') > -1) {
       return post.data.url;
@@ -249,7 +221,10 @@ export class GifService {
     return null;
   }
 
-  private getThumbnailForGif(post: RedditPost, defaultThumbnails: string[]) {
+  private getThumbnailForGif(
+    post: RedditPost,
+    defaultThumbnails: string[],
+  ): string {
     const thumbnail = post.data.thumbnail;
     const modifiedThumbnail = defaultThumbnails.includes(thumbnail)
       ? `/${thumbnail}.png`
